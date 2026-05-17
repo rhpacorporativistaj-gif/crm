@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>CRM PRO Mobile</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial, sans-serif;
+    background:#0f172a;
+    color:white;
+    padding:12px;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:15px;
+    font-size:28px;
+}
+
+.container{
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+}
+
+.box{
+    background:#1e293b;
+    border-radius:14px;
+    padding:15px;
+}
+
+h3{
+    margin-bottom:10px;
+    font-size:20px;
+}
+
+h4{
+    margin-top:15px;
+    margin-bottom:8px;
+}
+
+input,
+textarea,
+button{
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:14px;
+    margin-top:8px;
+    font-size:16px;
+}
+
+textarea{
+    min-height:90px;
+    resize:none;
+}
+
+input,
+textarea{
+    background:#334155;
+    color:white;
+}
+
+button{
+    background:#22c55e;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+button:active{
+    transform:scale(0.98);
+}
+
+.lista-scroll{
+    max-height:350px;
+    overflow-y:auto;
+    margin-top:10px;
+}
+
+.cliente{
+    background:#334155;
+    border-radius:12px;
+    padding:12px;
+    margin-top:10px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+
+.cliente span{
+    flex:1;
+    word-break:break-word;
+}
+
+.obs{
+    background:#475569;
+    padding:10px;
+    border-radius:10px;
+    margin-top:10px;
+    font-size:14px;
+    line-height:1.4;
+}
+
+.top-buttons{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.delete-btn{
+    width:45px;
+    background:#ef4444;
+    flex-shrink:0;
+}
+
+.status-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:10px;
+}
+
+#btnWhats{
+    background:#16a34a;
+}
+
+@media(min-width:900px){
+
+    body{
+        padding:20px;
+    }
+
+    .container{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:20px;
+    }
+
+    .full{
+        grid-column:1 / -1;
+    }
+
+    .top-buttons{
+        flex-direction:row;
+    }
+
+    .status-grid{
+        grid-template-columns:1fr 1fr 1fr;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>📊 CRM PRO</h1>
+
+<div class="container">
+
+<!-- NOVO CLIENTE -->
+<div class="box">
+
+<h3>Novo Cliente</h3>
+
+<input id="nome" placeholder="Nome">
+<input id="telefone" placeholder="Telefone">
+<input id="email" placeholder="Email">
+
+<textarea id="obsPrincipal" placeholder="Observação principal"></textarea>
+
+<button onclick="salvarCliente()">
+Salvar Cliente
+</button>
+
+</div>
+
+<!-- CLIENTES -->
+<div class="box">
+
+<h3>Clientes</h3>
+
+<input id="buscar"
+placeholder="🔎 Buscar cliente..."
+oninput="renderClientes()">
+
+<div class="top-buttons">
+
+<button onclick="exportarExcel()">
+📥 Exportar Excel
+</button>
+
+<button onclick="document.getElementById('inputImport').click()">
+📤 Importar Excel
+</button>
+
+</div>
+
+<input
+type="file"
+id="inputImport"
+accept=".xlsx,.xls"
+style="display:none"
+onchange="importarExcel(event)"
+>
+
+<div id="listaClientes" class="lista-scroll"></div>
+
+</div>
+
+<!-- AGENDADOS -->
+<div class="box full">
+
+<h3>📅 Agendados</h3>
+
+<div id="listaAgendados"></div>
+
+</div>
+
+<!-- DETALHES -->
+<div class="box full">
+
+<h3>Detalhes do Cliente</h3>
+
+<div id="detalhes"></div>
+
+<button
+id="btnWhats"
+style="display:none;"
+onclick="abrirWhats()"
+>
+💬 Chamar no WhatsApp
+</button>
+
+<h4>📅 Agendar Serviço</h4>
+
+<input type="datetime-local" id="dataAgendamento">
+
+<button onclick="agendarServico()">
+Agendar
+</button>
+
+<div id="agendaInfo"></div>
+
+<textarea
+id="novaObs"
+placeholder="Nova observação"
+></textarea>
+
+<button onclick="adicionarObs()">
+Adicionar Observação
+</button>
+
+<div class="status-grid">
+
+<button onclick="addStatus('Fechou venda')">
+💰 Fechou
+</button>
+
+<button onclick="addStatus('Não atendeu')">
+📵 Não atendeu
+</button>
+
+<button onclick="addStatus('Agendado')">
+⏰ Agendado
+</button>
+
+</div>
+
+<div id="historico"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let clientes = [];
+let clienteAtual = null;
+
+function init(){
+
+    try{
+
+        const raw = localStorage.getItem("clientes");
+
+        clientes = raw
+            ? JSON.parse(raw)
+            : [];
+
+        if(!Array.isArray(clientes)){
+            clientes = [];
+        }
+
+    }catch{
+        clientes = [];
+    }
+
+    renderClientes();
+    renderAgendados();
+}
+
+function salvarLocal(){
+    localStorage.setItem(
+        "clientes",
+        JSON.stringify(clientes)
+    );
+}
+
+/* CLIENTE */
+
+function salvarCliente(){
+
+    const nome =
+    document.getElementById("nome")
+    .value.trim();
+
+    if(!nome){
+        return alert("Digite o nome");
+    }
+
+    const cliente = {
+
+        id:Date.now(),
+
+        nome,
+
+        telefone:
+        document.getElementById("telefone").value,
+
+        email:
+        document.getElementById("email").value,
+
+        obsPrincipal:
+        document.getElementById("obsPrincipal").value,
+
+        historico:[],
+
+        agendamento:null
+    };
+
+    clientes.push(cliente);
+
+    salvarLocal();
+
+    renderClientes();
+
+    renderAgendados();
+
+    document.getElementById("nome").value = "";
+    document.getElementById("telefone").value = "";
+    document.getElementById("email").value = "";
+    document.getElementById("obsPrincipal").value = "";
+}
+
+/* LISTA */
+
+function renderClientes(){
+
+    const lista =
+    document.getElementById("listaClientes");
+
+    lista.innerHTML = "";
+
+    const termo =
+    document.getElementById("buscar")
+    .value.toLowerCase();
+
+    clientes
+    .filter(c =>
+        c.nome.toLowerCase().includes(termo)
+    )
+
+    .forEach(c=>{
+
+        const div =
+        document.createElement("div");
+
+        div.className = "cliente";
+
+        const span =
+        document.createElement("span");
+
+        span.innerHTML = `
+            <b>${c.nome}</b><br>
+            <small>${c.telefone || ""}</small>
+        `;
+
+        span.onclick = ()=>{
+            selecionarCliente(c.id);
+        };
+
+        const del =
+        document.createElement("button");
+
+        del.innerHTML = "🗑️";
+
+        del.className = "delete-btn";
+
+        del.onclick = (e)=>{
+            e.stopPropagation();
+            deletarCliente(c.id);
+        };
+
+        div.appendChild(span);
+        div.appendChild(del);
+
+        lista.appendChild(div);
+    });
+}
+
+/* AGENDADOS */
+
+function renderAgendados(){
+
+    const div =
+    document.getElementById("listaAgendados");
+
+    div.innerHTML = "";
+
+    const agendados = clientes
+    .filter(c => c.agendamento)
+
+    .sort((a,b)=>
+        new Date(a.agendamento)
+        -
+        new Date(b.agendamento)
+    );
+
+    if(!agendados.length){
+
+        div.innerHTML =
+        "<p>Nenhum agendamento</p>";
+
+        return;
+    }
+
+    agendados.forEach(c=>{
+
+        const item =
+        document.createElement("div");
+
+        item.className = "cliente";
+
+        item.innerHTML = `
+            <span>
+                <b>${c.nome}</b><br>
+                <small>
+                📅
+                ${new Date(c.agendamento).toLocaleString()}
+                </small>
+            </span>
+        `;
+
+        item.onclick = ()=>{
+            selecionarCliente(c.id);
+        };
+
+        div.appendChild(item);
+    });
+}
+
+/* SELEÇÃO */
+
+function selecionarCliente(id){
+
+    clienteAtual =
+    clientes.find(c => c.id === id);
+
+    if(!clienteAtual) return;
+
+    document.getElementById("detalhes")
+    .innerHTML = `
+
+        <div class="obs">
+            <b>${clienteAtual.nome}</b><br><br>
+
+            📞 ${clienteAtual.telefone || "-"}<br>
+
+            ✉️ ${clienteAtual.email || "-"}<br><br>
+
+            📝 ${clienteAtual.obsPrincipal || "-"}
+        </div>
+
+    `;
+
+    document.getElementById("btnWhats")
+    .style.display = "block";
+
+    renderHistorico();
+
+    renderAgenda();
+}
+
+/* WHATS */
+
+function abrirWhats(){
+
+    let numero =
+    clienteAtual.telefone.replace(/\D/g,"");
+
+    if(!numero.startsWith("55")){
+        numero = "55" + numero;
+    }
+
+    const msg = encodeURIComponent(
+        "Olá tudo bem?"
+    );
+
+    window.open(
+        `https://wa.me/${numero}?text=${msg}`,
+        "_blank"
+    );
+
+    salvarHistorico("Abriu WhatsApp");
+}
+
+/* AGENDAR */
+
+function agendarServico(){
+
+    if(!clienteAtual){
+        return alert("Selecione cliente");
+    }
+
+    const data =
+    document.getElementById("dataAgendamento")
+    .value;
+
+    if(!data){
+        return alert("Escolha data");
+    }
+
+    clienteAtual.agendamento = data;
+
+    salvarLocal();
+
+    renderAgenda();
+
+    renderAgendados();
+
+    salvarHistorico(
+        "Agendado: " +
+        new Date(data).toLocaleString()
+    );
+}
+
+function renderAgenda(){
+
+    const div =
+    document.getElementById("agendaInfo");
+
+    if(
+        !clienteAtual
+        ||
+        !clienteAtual.agendamento
+    ){
+        div.innerHTML = "";
+        return;
+    }
+
+    div.innerHTML = `
+        <div class="obs">
+            📅
+            ${new Date(clienteAtual.agendamento)
+            .toLocaleString()}
+        </div>
+    `;
+}
+
+/* DELETE */
+
+function deletarCliente(id){
+
+    clientes =
+    clientes.filter(c => c.id !== id);
+
+    if(clienteAtual?.id === id){
+
+        clienteAtual = null;
+
+        document.getElementById("detalhes")
+        .innerHTML = "";
+
+        document.getElementById("btnWhats")
+        .style.display = "none";
+    }
+
+    salvarLocal();
+
+    renderClientes();
+
+    renderAgendados();
+}
+
+/* HISTÓRICO */
+
+function adicionarObs(){
+
+    const txt =
+    document.getElementById("novaObs").value;
+
+    salvarHistorico(txt);
+
+    document.getElementById("novaObs").value = "";
+}
+
+function addStatus(s){
+    salvarHistorico("STATUS: " + s);
+}
+
+function salvarHistorico(t){
+
+    if(!clienteAtual) return;
+
+    if(!clienteAtual.historico){
+        clienteAtual.historico = [];
+    }
+
+    clienteAtual.historico.push({
+
+        texto:t,
+
+        data:new Date().toLocaleString()
+
+    });
+
+    salvarLocal();
+
+    renderHistorico();
+}
+
+function renderHistorico(){
+
+    const div =
+    document.getElementById("historico");
+
+    if(!clienteAtual){
+        div.innerHTML = "";
+        return;
+    }
+
+    div.innerHTML = "<h4>Histórico</h4>";
+
+    clienteAtual.historico
+    .slice()
+    .reverse()
+
+    .forEach(h=>{
+
+        div.innerHTML += `
+            <div class="obs">
+                <b>${h.data}</b><br>
+                ${h.texto}
+            </div>
+        `;
+    });
+}
+
+/* EXPORTAR */
+
+function exportarExcel(){
+
+    const dados = clientes.map(c=>({
+
+        Nome:c.nome,
+
+        Telefone:c.telefone,
+
+        Email:c.email
+
+    }));
+
+    const ws =
+    XLSX.utils.json_to_sheet(dados);
+
+    const wb =
+    XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "Clientes"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "clientes.xlsx"
+    );
+}
+
+/* IMPORTAR */
+
+function importarExcel(event){
+
+    const file =
+    event.target.files[0];
+
+    const reader =
+    new FileReader();
+
+    reader.onload = e => {
+
+        const wb =
+        XLSX.read(
+            new Uint8Array(e.target.result),
+            {type:"array"}
+        );
+
+        const json =
+        XLSX.utils.sheet_to_json(
+            wb.Sheets[wb.SheetNames[0]]
+        );
+
+        const novos = json.map(i=>({
+
+            id:Date.now()+Math.random(),
+
+            nome:i.Nome || "",
+
+            telefone:i.Telefone || "",
+
+            email:i.Email || "",
+
+            historico:[],
+
+            agendamento:null
+
+        }));
+
+        clientes = [
+            ...clientes,
+            ...novos
+        ];
+
+        salvarLocal();
+
+        renderClientes();
+
+        renderAgendados();
+    };
+
+    reader.readAsArrayBuffer(file);
+
+    event.target.value = "";
+}
+
+window.onload = init;
+
+</script>
+
+</body>
+</html>
