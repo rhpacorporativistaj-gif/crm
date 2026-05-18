@@ -342,26 +342,24 @@ import {
     getFirestore,
     collection,
     addDoc,
-    getDocs,
-    deleteDoc,
-    doc,
-    updateDoc
+    getDocs
 } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+
 const firebaseConfig = {
 
-    apiKey: "SUA_KEY",
+    apiKey: "AIzaSyBXItibf_Ytfwgl7aZ8C65B8Fxt1LMGFYU",
 
-    authDomain: "SEU_AUTH",
+    authDomain: "crmm-m.firebaseapp.com",
 
-    projectId: "SEU_PROJECT",
+    projectId: "crmm-m",
 
-    storageBucket: "SEU_BUCKET",
+    storageBucket: "crmm-m.firebasestorage.app",
 
-    messagingSenderId: "SEU_MSG",
+    messagingSenderId: "1042579492735",
 
-    appId: "SEU_APP"
+    appId: "1:1042579492735:web:439920899b3ced170e544a"
 
 };
 
@@ -376,7 +374,7 @@ let clientes = [];
 let clienteAtual = null;
 
 
-/* LOCAL CACHE */
+/* CACHE */
 
 function salvarCache(){
 
@@ -497,11 +495,9 @@ onAuthStateChanged(auth, async user => {
 });
 
 
-/* SINCRONIZAR */
+/* FIREBASE */
 
 async function sincronizarFirebase(){
-
-    mostrarLoading("Sincronizando...");
 
     try{
 
@@ -509,8 +505,6 @@ async function sincronizarFirebase(){
         await getDocs(
             collection(db,"clientes")
         );
-
-        clientes = [];
 
         snapshot.forEach(docSnap=>{
 
@@ -521,13 +515,22 @@ async function sincronizarFirebase(){
                 auth.currentUser.uid
             ){
 
-                clientes.push({
+                const jaExiste =
+                clientes.some(
+                    c => c.firebaseId === docSnap.id
+                );
 
-                    id:docSnap.id,
+                if(!jaExiste){
 
-                    ...data
+                    clientes.push({
 
-                });
+                        ...data,
+
+                        firebaseId:docSnap.id
+
+                    });
+
+                }
 
             }
 
@@ -545,29 +548,10 @@ async function sincronizarFirebase(){
 
     }
 
-    esconderLoading();
-
 }
 
 
-/* LOADING */
-
-function mostrarLoading(txt){
-
-    document.getElementById("loading")
-    .innerText = txt;
-
-}
-
-function esconderLoading(){
-
-    document.getElementById("loading")
-    .innerText = "";
-
-}
-
-
-/* SALVAR CLIENTE */
+/* CLIENTE */
 
 window.salvarCliente = async function(){
 
@@ -608,6 +592,8 @@ window.salvarCliente = async function(){
 
     renderClientes();
 
+    renderAgendados();
+
     limparCampos();
 
     try{
@@ -634,9 +620,6 @@ window.salvarCliente = async function(){
     }
 
 }
-
-
-/* LIMPAR */
 
 function limparCampos(){
 
@@ -688,13 +671,6 @@ window.renderClientes = function(){
 
             </span>
 
-            <button
-            class="delete-btn"
-            onclick="deletarCliente('${c.id}')"
-            >
-            🗑️
-            </button>
-
         </div>
 
         `;
@@ -702,9 +678,6 @@ window.renderClientes = function(){
     });
 
 }
-
-
-/* AGENDADOS */
 
 window.renderAgendados = function(){
 
@@ -749,12 +722,14 @@ window.renderAgendados = function(){
 }
 
 
-/* SELECIONAR */
+/* DETALHES */
 
 window.selecionarCliente = function(id){
 
     clienteAtual =
-    clientes.find(c=>String(c.id)===String(id));
+    clientes.find(
+        c=>String(c.id)===String(id)
+    );
 
     if(!clienteAtual) return;
 
@@ -785,22 +760,6 @@ window.selecionarCliente = function(id){
 }
 
 
-/* DELETE */
-
-window.deletarCliente = async function(id){
-
-    clientes =
-    clientes.filter(
-        c=>String(c.id)!==String(id)
-    );
-
-    salvarCache();
-
-    renderClientes();
-
-}
-
-
 /* WHATS */
 
 window.abrirWhats = function(){
@@ -823,7 +782,7 @@ window.abrirWhats = function(){
 }
 
 
-/* AGENDAR */
+/* AGENDA */
 
 window.agendarServico = function(){
 
@@ -845,9 +804,6 @@ window.agendarServico = function(){
     renderAgendados();
 
 }
-
-
-/* AGENDA */
 
 window.renderAgenda = function(){
 
@@ -946,7 +902,7 @@ window.renderHistorico = function(){
 }
 
 
-/* EXPORTAR */
+/* EXCEL */
 
 window.exportarExcel = function(){
 
@@ -978,9 +934,6 @@ window.exportarExcel = function(){
     );
 
 }
-
-
-/* IMPORTAR */
 
 window.importarExcel = function(event){
 
