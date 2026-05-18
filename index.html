@@ -18,7 +18,7 @@
 }
 
 body{
-    font-family:Arial, sans-serif;
+    font-family:Arial,sans-serif;
     background:#0f172a;
     color:white;
     padding:12px;
@@ -27,7 +27,6 @@ body{
 h1{
     text-align:center;
     margin-bottom:15px;
-    font-size:28px;
 }
 
 .container{
@@ -42,30 +41,15 @@ h1{
     padding:15px;
 }
 
-h3{
-    margin-bottom:10px;
-    font-size:20px;
-}
-
-h4{
-    margin-top:15px;
-    margin-bottom:8px;
-}
-
 input,
 textarea,
 button{
     width:100%;
-    border:none;
-    border-radius:10px;
     padding:14px;
     margin-top:8px;
+    border:none;
+    border-radius:10px;
     font-size:16px;
-}
-
-textarea{
-    min-height:90px;
-    resize:none;
 }
 
 input,
@@ -81,6 +65,11 @@ button{
     cursor:pointer;
 }
 
+textarea{
+    min-height:90px;
+    resize:none;
+}
+
 .lista-scroll{
     max-height:350px;
     overflow-y:auto;
@@ -89,7 +78,7 @@ button{
 
 .cliente{
     background:#334155;
-    border-radius:12px;
+    border-radius:10px;
     padding:12px;
     margin-top:10px;
 
@@ -104,7 +93,6 @@ button{
     padding:10px;
     border-radius:10px;
     margin-top:10px;
-    font-size:14px;
 }
 
 .delete-btn{
@@ -114,27 +102,26 @@ button{
 
 #loginScreen{
     position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100vh;
+    inset:0;
 
     background:#0f172a;
 
     display:flex;
-    flex-direction:column;
     justify-content:center;
     align-items:center;
 
     padding:20px;
-    z-index:9999;
+    z-index:999;
 }
 
 .login-box{
     width:100%;
     max-width:400px;
+
     background:#1e293b;
+
     padding:25px;
+
     border-radius:16px;
 }
 
@@ -239,6 +226,18 @@ oninput="renderClientes()"
 📥 Exportar Excel
 </button>
 
+<button onclick="document.getElementById('inputImport').click()">
+📤 Importar Excel
+</button>
+
+<input
+type="file"
+id="inputImport"
+accept=".xlsx,.xls"
+style="display:none"
+onchange="importarExcel(event)"
+>
+
 <div
 id="listaClientes"
 class="lista-scroll"
@@ -316,8 +315,6 @@ Adicionar Observação
 
 <script type="module">
 
-/* FIREBASE */
-
 import { initializeApp } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -345,13 +342,13 @@ import { getAnalytics } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
 
+/* FIREBASE */
+
 const firebaseConfig = {
 
     apiKey: "AIzaSyBXItibf_Ytfwgl7aZ8C65B8Fxt1LMGFYU",
 
     authDomain: "crmm-m.firebaseapp.com",
-
-    databaseURL: "https://crmm-m-default-rtdb.firebaseio.com",
 
     projectId: "crmm-m",
 
@@ -378,18 +375,16 @@ const db = getFirestore(app);
 
 window.registrar = async function(){
 
-    const email =
-    document.getElementById("emailLogin").value;
-
-    const senha =
-    document.getElementById("senhaLogin").value;
-
     try{
 
         await createUserWithEmailAndPassword(
+
             auth,
-            email,
-            senha
+
+            document.getElementById("emailLogin").value,
+
+            document.getElementById("senhaLogin").value
+
         );
 
         alert("Conta criada");
@@ -402,21 +397,18 @@ window.registrar = async function(){
 
 }
 
-
 window.login = async function(){
-
-    const email =
-    document.getElementById("emailLogin").value;
-
-    const senha =
-    document.getElementById("senhaLogin").value;
 
     try{
 
         await signInWithEmailAndPassword(
+
             auth,
-            email,
-            senha
+
+            document.getElementById("emailLogin").value,
+
+            document.getElementById("senhaLogin").value
+
         );
 
     }catch(err){
@@ -427,7 +419,6 @@ window.login = async function(){
 
 }
 
-
 window.logout = async function(){
 
     await signOut(auth);
@@ -435,7 +426,7 @@ window.logout = async function(){
 }
 
 
-/* LOGIN CHECK */
+/* AUTH */
 
 onAuthStateChanged(auth, async user => {
 
@@ -469,81 +460,71 @@ let clientes = [];
 let clienteAtual = null;
 
 
-/* SALVAR CLIENTE */
+/* SALVAR */
 
 window.salvarCliente = async function(){
 
     const nome =
-    document.getElementById("nome")
-    .value.trim();
+    document.getElementById("nome").value.trim();
 
     if(!nome){
+
         return alert("Digite o nome");
-    }
-
-    const cliente = {
-
-        nome,
-
-        telefone:
-        document.getElementById("telefone").value,
-
-        email:
-        document.getElementById("email").value,
-
-        obsPrincipal:
-        document.getElementById("obsPrincipal").value,
-
-        historico:[],
-
-        agendamento:null,
-
-        userId: auth.currentUser.uid
-
-    };
-
-    try{
-
-        await addDoc(
-            collection(db,"clientes"),
-            cliente
-        );
-
-        limparCampos();
-
-        carregarClientes();
-
-    }catch(err){
-
-        alert(err.message);
 
     }
+
+    await addDoc(
+
+        collection(db,"clientes"),
+
+        {
+
+            nome,
+
+            telefone:
+            document.getElementById("telefone").value,
+
+            email:
+            document.getElementById("email").value,
+
+            obsPrincipal:
+            document.getElementById("obsPrincipal").value,
+
+            historico:[],
+
+            agendamento:null,
+
+            userId: auth.currentUser.uid
+
+        }
+
+    );
+
+    limparCampos();
+
+    carregarClientes();
 
 }
 
 
-/* CARREGAR CLIENTES */
+/* CARREGAR */
 
 async function carregarClientes(){
 
     clientes = [];
 
     const querySnapshot =
-    await getDocs(
-        collection(db,"clientes")
-    );
+    await getDocs(collection(db,"clientes"));
 
     querySnapshot.forEach(docSnap => {
 
         const data = docSnap.data();
 
-        if(
-            data.userId === auth.currentUser.uid
-        ){
+        if(data.userId === auth.currentUser.uid){
 
             clientes.push({
 
-                id: docSnap.id,
+                id:docSnap.id,
 
                 ...data
 
@@ -575,7 +556,7 @@ function limparCampos(){
 }
 
 
-/* RENDER CLIENTES */
+/* RENDER */
 
 window.renderClientes = function(){
 
@@ -596,33 +577,30 @@ window.renderClientes = function(){
 
     .forEach(c=>{
 
-        const div =
-        document.createElement("div");
+        lista.innerHTML += `
 
-        div.className = "cliente";
+        <div class="cliente">
 
-        div.innerHTML = `
+            <span
+            onclick="selecionarCliente('${c.id}')"
+            >
 
-        <span onclick="selecionarCliente('${c.id}')">
+            <b>${c.nome}</b><br>
 
-        <b>${c.nome}</b><br>
+            <small>${c.telefone || ""}</small>
 
-        <small>${c.telefone || ""}</small>
+            </span>
 
-        </span>
+            <button
+            class="delete-btn"
+            onclick="deletarCliente('${c.id}')"
+            >
+            🗑️
+            </button>
 
-        <button
-        class="delete-btn"
-        onclick="deletarCliente('${c.id}')"
-        >
-
-        🗑️
-
-        </button>
+        </div>
 
         `;
-
-        lista.appendChild(div);
 
     });
 
@@ -710,23 +688,13 @@ window.selecionarCliente = function(id){
 }
 
 
-/* DELETAR */
+/* DELETE */
 
 window.deletarCliente = async function(id){
 
-    try{
+    await deleteDoc(doc(db,"clientes",id));
 
-        await deleteDoc(
-            doc(db,"clientes",id)
-        );
-
-        carregarClientes();
-
-    }catch(err){
-
-        alert(err.message);
-
-    }
+    carregarClientes();
 
 }
 
@@ -739,7 +707,9 @@ window.abrirWhats = function(){
     clienteAtual.telefone.replace(/\D/g,"");
 
     if(!numero.startsWith("55")){
+
         numero = "55" + numero;
+
     }
 
     window.open(
@@ -764,31 +734,23 @@ window.agendarServico = async function(){
     document.getElementById("dataAgendamento")
     .value;
 
-    try{
+    await updateDoc(
 
-        await updateDoc(
+        doc(db,"clientes",clienteAtual.id),
 
-            doc(db,"clientes",clienteAtual.id),
+        {
 
-            {
+            agendamento:data
 
-                agendamento:data
+        }
 
-            }
+    );
 
-        );
+    clienteAtual.agendamento = data;
 
-        clienteAtual.agendamento = data;
+    renderAgenda();
 
-        renderAgenda();
-
-        renderAgendados();
-
-    }catch(err){
-
-        alert(err.message);
-
-    }
+    renderAgendados();
 
 }
 
@@ -827,33 +789,23 @@ window.renderAgenda = function(){
 
 window.adicionarObs = function(){
 
-    const txt =
-    document.getElementById("novaObs")
-    .value;
-
-    salvarHistorico(txt);
-
-}
-
-
-window.addStatus = function(s){
-
     salvarHistorico(
-        "STATUS: " + s
+
+        document.getElementById("novaObs").value
+
     );
 
 }
 
+window.addStatus = function(s){
+
+    salvarHistorico("STATUS: " + s);
+
+}
 
 window.salvarHistorico = async function(t){
 
     if(!clienteAtual) return;
-
-    if(!clienteAtual.historico){
-
-        clienteAtual.historico = [];
-
-    }
 
     clienteAtual.historico.push({
 
@@ -863,31 +815,22 @@ window.salvarHistorico = async function(t){
 
     });
 
-    try{
+    await updateDoc(
 
-        await updateDoc(
+        doc(db,"clientes",clienteAtual.id),
 
-            doc(db,"clientes",clienteAtual.id),
+        {
 
-            {
+            historico:
+            clienteAtual.historico
 
-                historico:
-                clienteAtual.historico
+        }
 
-            }
+    );
 
-        );
-
-        renderHistorico();
-
-    }catch(err){
-
-        alert(err.message);
-
-    }
+    renderHistorico();
 
 }
-
 
 window.renderHistorico = function(){
 
@@ -951,6 +894,71 @@ window.exportarExcel = function(){
         wb,
         "clientes.xlsx"
     );
+
+}
+
+
+/* IMPORTAR */
+
+window.importarExcel = async function(event){
+
+    const file = event.target.files[0];
+
+    if(!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = async e => {
+
+        const wb = XLSX.read(
+
+            new Uint8Array(e.target.result),
+
+            { type:"array" }
+
+        );
+
+        const json = XLSX.utils.sheet_to_json(
+
+            wb.Sheets[wb.SheetNames[0]]
+
+        );
+
+        for(const i of json){
+
+            await addDoc(
+
+                collection(db,"clientes"),
+
+                {
+
+                    nome: i.Nome || "",
+
+                    telefone: i.Telefone || "",
+
+                    email: i.Email || "",
+
+                    obsPrincipal: "",
+
+                    historico: [],
+
+                    agendamento: null,
+
+                    userId: auth.currentUser.uid
+
+                }
+
+            );
+
+        }
+
+        carregarClientes();
+
+        alert("Importado com sucesso");
+
+    };
+
+    reader.readAsArrayBuffer(file);
 
 }
 
