@@ -3,7 +3,6 @@
 <head>
 
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>CRM PRO</title>
@@ -19,7 +18,7 @@
 }
 
 body{
-    font-family:Arial, sans-serif;
+    font-family:Arial,sans-serif;
     background:#0f172a;
     color:white;
     padding:12px;
@@ -327,9 +326,9 @@ Adicionar Observação
 
 </div>
 
-<!-- FIREBASE -->
-
 <script type="module">
+
+/* FIREBASE */
 
 import { initializeApp } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -342,6 +341,14 @@ import {
     signOut
 } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { getAnalytics } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
@@ -372,6 +379,8 @@ const app = initializeApp(firebaseConfig);
 getAnalytics(app);
 
 const auth = getAuth(app);
+
+const db = getFirestore(app);
 
 
 /* LOGIN */
@@ -441,6 +450,8 @@ onAuthStateChanged(auth, user => {
 
     if(user){
 
+        carregarFirebase();
+
         document.getElementById("loginScreen")
         .style.display = "none";
 
@@ -497,7 +508,88 @@ function salvarLocal(){
         JSON.stringify(clientes)
     );
 
+    salvarFirebase();
+
 }
+
+
+/* FIREBASE BACKUP */
+
+async function salvarFirebase(){
+
+    const user = auth.currentUser;
+
+    if(!user) return;
+
+    try{
+
+        await setDoc(
+
+            doc(db, "crmClientes", user.uid),
+
+            {
+                clientes: clientes
+            }
+
+        );
+
+        console.log("Backup Firebase OK");
+
+    }catch(err){
+
+        console.log(err);
+
+    }
+
+}
+
+
+
+async function carregarFirebase(){
+
+    const user = auth.currentUser;
+
+    if(!user) return;
+
+    try{
+
+        const ref =
+        doc(db, "crmClientes", user.uid);
+
+        const snap =
+        await getDoc(ref);
+
+        if(snap.exists()){
+
+            const dados = snap.data();
+
+            if(dados.clientes){
+
+                clientes = dados.clientes;
+
+                localStorage.setItem(
+                    "clientes",
+                    JSON.stringify(clientes)
+                );
+
+                renderClientes();
+
+                renderAgendados();
+
+            }
+
+        }
+
+    }catch(err){
+
+        console.log(err);
+
+    }
+
+}
+
+
+/* CLIENTES */
 
 window.salvarCliente = function(){
 
@@ -539,6 +631,9 @@ window.salvarCliente = function(){
     renderAgendados();
 
 }
+
+
+/* RENDER CLIENTES */
 
 window.renderClientes = function(){
 
@@ -590,6 +685,9 @@ window.renderClientes = function(){
 
 }
 
+
+/* AGENDADOS */
+
 window.renderAgendados = function(){
 
     const div =
@@ -631,6 +729,9 @@ window.renderAgendados = function(){
 
 }
 
+
+/* SELECIONAR */
+
 window.selecionarCliente = function(id){
 
     clienteAtual =
@@ -664,6 +765,9 @@ window.selecionarCliente = function(id){
 
 }
 
+
+/* WHATS */
+
 window.abrirWhats = function(){
 
     let numero =
@@ -679,6 +783,9 @@ window.abrirWhats = function(){
     );
 
 }
+
+
+/* AGENDAR */
 
 window.agendarServico = function(){
 
@@ -699,6 +806,7 @@ window.agendarServico = function(){
     renderAgendados();
 
 }
+
 
 window.renderAgenda = function(){
 
@@ -727,6 +835,9 @@ window.renderAgenda = function(){
 
 }
 
+
+/* DELETE */
+
 window.deletarCliente = function(id){
 
     clientes =
@@ -740,6 +851,9 @@ window.deletarCliente = function(id){
 
 }
 
+
+/* OBS */
+
 window.adicionarObs = function(){
 
     const txt =
@@ -750,11 +864,13 @@ window.adicionarObs = function(){
 
 }
 
+
 window.addStatus = function(s){
 
     salvarHistorico("STATUS: " + s);
 
 }
+
 
 window.salvarHistorico = function(t){
 
@@ -773,6 +889,7 @@ window.salvarHistorico = function(t){
     renderHistorico();
 
 }
+
 
 window.renderHistorico = function(){
 
@@ -805,6 +922,9 @@ window.renderHistorico = function(){
 
 }
 
+
+/* EXCEL */
+
 window.exportarExcel = function(){
 
     const dados = clientes.map(c=>({
@@ -835,6 +955,7 @@ window.exportarExcel = function(){
     );
 
 }
+
 
 window.importarExcel = function(event){
 
