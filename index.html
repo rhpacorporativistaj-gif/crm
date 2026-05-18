@@ -95,11 +95,6 @@ textarea{
     margin-top:10px;
 }
 
-.delete-btn{
-    width:45px;
-    background:#ef4444;
-}
-
 #loginScreen{
     position:fixed;
     inset:0;
@@ -123,12 +118,6 @@ textarea{
     padding:25px;
 
     border-radius:16px;
-}
-
-.loading{
-    text-align:center;
-    margin-top:10px;
-    color:#cbd5e1;
 }
 
 @media(min-width:900px){
@@ -181,7 +170,7 @@ Criar Conta
 
 </div>
 
-<!-- CRM -->
+<!-- APP -->
 
 <div id="crmApp" style="display:none;">
 
@@ -214,11 +203,6 @@ Salvar Cliente
 Sair da Conta
 </button>
 
-<div
-id="loading"
-class="loading"
-></div>
-
 </div>
 
 <!-- CLIENTES -->
@@ -237,7 +221,7 @@ oninput="renderClientes()"
 📥 Exportar Excel
 </button>
 
-<button onclick="document.getElementById('inputImport').click()">
+<button onclick="abrirImportacao(event)">
 📤 Importar Excel
 </button>
 
@@ -246,7 +230,6 @@ type="file"
 id="inputImport"
 accept=".xlsx,.xls"
 style="display:none"
-onchange="importarExcel(event)"
 >
 
 <div
@@ -515,12 +498,13 @@ async function sincronizarFirebase(){
                 auth.currentUser.uid
             ){
 
-                const jaExiste =
+                const existe =
                 clientes.some(
-                    c => c.firebaseId === docSnap.id
+                    c =>
+                    c.firebaseId === docSnap.id
                 );
 
-                if(!jaExiste){
+                if(!existe){
 
                     clientes.push({
 
@@ -634,6 +618,28 @@ function limparCampos(){
 }
 
 
+/* IMPORTAÇÃO FIX */
+
+window.abrirImportacao = function(e){
+
+    e.stopPropagation();
+
+    const input =
+    document.getElementById("inputImport");
+
+    input.value = "";
+
+    input.onchange = function(ev){
+
+        importarExcel(ev);
+
+    };
+
+    input.click();
+
+}
+
+
 /* RENDER */
 
 window.renderClientes = function(){
@@ -657,19 +663,20 @@ window.renderClientes = function(){
 
         lista.innerHTML += `
 
-        <div class="cliente">
+        <div
+        class="cliente"
+        onclick="selecionarCliente('${c.id}')"
+        >
 
-            <span
-            onclick="selecionarCliente('${c.id}')"
-            >
+        <span>
 
-            <b>${c.nome}</b><br>
+        <b>${c.nome}</b><br>
 
-            <small>
-            ${c.telefone || ""}
-            </small>
+        <small>
+        ${c.telefone || ""}
+        </small>
 
-            </span>
+        </span>
 
         </div>
 
@@ -947,57 +954,67 @@ window.importarExcel = function(event){
 
     reader.onload = e => {
 
-        const wb = XLSX.read(
+        try{
 
-            new Uint8Array(e.target.result),
+            const wb = XLSX.read(
 
-            {type:"array"}
+                new Uint8Array(e.target.result),
 
-        );
+                {type:"array"}
 
-        const json =
-        XLSX.utils.sheet_to_json(
+            );
 
-            wb.Sheets[wb.SheetNames[0]]
+            const json =
+            XLSX.utils.sheet_to_json(
 
-        );
+                wb.Sheets[wb.SheetNames[0]]
 
-        json.forEach(item=>{
+            );
 
-            clientes.unshift({
+            json.forEach(item=>{
 
-                id:Date.now()+Math.random(),
+                clientes.unshift({
 
-                nome:
-                item.Nome ||
-                item.nome ||
-                "",
+                    id:Date.now()+Math.random(),
 
-                telefone:
-                item.Telefone ||
-                item.telefone ||
-                "",
+                    nome:
+                    item.Nome ||
+                    item.nome ||
+                    "",
 
-                email:
-                item.Email ||
-                item.email ||
-                "",
+                    telefone:
+                    item.Telefone ||
+                    item.telefone ||
+                    "",
 
-                obsPrincipal:"",
+                    email:
+                    item.Email ||
+                    item.email ||
+                    "",
 
-                historico:[],
+                    obsPrincipal:"",
 
-                agendamento:null
+                    historico:[],
+
+                    agendamento:null
+
+                });
 
             });
 
-        });
+            salvarCache();
 
-        salvarCache();
+            renderClientes();
 
-        renderClientes();
+            alert("Importado");
 
-        alert("Importado");
+        }catch(err){
+
+            console.log(err);
+
+            alert("Erro ao importar");
+
+        }
 
     };
 
