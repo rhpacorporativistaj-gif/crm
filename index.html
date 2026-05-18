@@ -125,6 +125,13 @@ textarea{
     border-radius:16px;
 }
 
+.loading{
+    margin-top:10px;
+    text-align:center;
+    font-size:14px;
+    color:#cbd5e1;
+}
+
 @media(min-width:900px){
 
     .container{
@@ -207,6 +214,11 @@ Salvar Cliente
 <button onclick="logout()">
 Sair da Conta
 </button>
+
+<div
+id="loading"
+class="loading"
+></div>
 
 </div>
 
@@ -342,8 +354,6 @@ import { getAnalytics } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
 
-/* FIREBASE */
-
 const firebaseConfig = {
 
     apiKey: "AIzaSyBXItibf_Ytfwgl7aZ8C65B8Fxt1LMGFYU",
@@ -369,6 +379,10 @@ getAnalytics(app);
 const auth = getAuth(app);
 
 const db = getFirestore(app);
+
+let clientes = [];
+
+let clienteAtual = null;
 
 
 /* LOGIN */
@@ -453,14 +467,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 
-/* CRM */
-
-let clientes = [];
-
-let clienteAtual = null;
-
-
-/* SALVAR */
+/* CLIENTES */
 
 window.salvarCliente = async function(){
 
@@ -472,6 +479,8 @@ window.salvarCliente = async function(){
         return alert("Digite o nome");
 
     }
+
+    mostrarLoading("Salvando cliente...");
 
     await addDoc(
 
@@ -502,7 +511,9 @@ window.salvarCliente = async function(){
 
     limparCampos();
 
-    carregarClientes();
+    await carregarClientes();
+
+    esconderLoading();
 
 }
 
@@ -537,6 +548,23 @@ async function carregarClientes(){
     renderClientes();
 
     renderAgendados();
+
+}
+
+
+/* LOADING */
+
+function mostrarLoading(texto){
+
+    document.getElementById("loading")
+    .innerText = texto;
+
+}
+
+function esconderLoading(){
+
+    document.getElementById("loading")
+    .innerText = "";
 
 }
 
@@ -904,61 +932,138 @@ window.importarExcel = async function(event){
 
     const file = event.target.files[0];
 
-    if(!file) return;
+    if(!file){
 
-    const reader = new FileReader();
+        return;
 
-    reader.onload = async e => {
+    }
 
-        const wb = XLSX.read(
+    try{
 
-            new Uint8Array(e.target.result),
-
-            { type:"array" }
-
+        mostrarLoading(
+            "Importando planilha..."
         );
 
-        const json = XLSX.utils.sheet_to_json(
+        const reader = new FileReader();
 
-            wb.Sheets[wb.SheetNames[0]]
+        reader.onload = async e => {
 
-        );
+            try{
 
-        for(const i of json){
+                const data =
+                new Uint8Array(e.target.result);
 
-            await addDoc(
+                const wb = XLSX.read(data, {
 
-                collection(db,"clientes"),
+                    type:"array"
 
-                {
+                });
 
-                    nome: i.Nome || "",
+                const sheet =
+                wb.Sheets[wb.SheetNames[0]];
 
-                    telefone: i.Telefone || "",
+                const json =
+                XLSX.utils.sheet_to_json(sheet);
 
-                    email: i.Email || "",
+                if(!json.length){
 
-                    obsPrincipal: "",
+                    esconderLoading();
 
-                    historico: [],
+                    alert("Planilha vazia");
 
-                    agendamento: null,
-
-                    userId: auth.currentUser.uid
+                    return;
 
                 }
 
-            );
+                const promessas = [];
 
-        }
+                for(const item of json){
 
-        carregarClientes();
+                    const cliente = {
 
-        alert("Importado com sucesso");
+                        nome:
+                        item.Nome ||
+                        item.nome ||
+                        "",
 
-    };
+                        telefone:
+                        item.Telefone ||
+                        item.telefone ||
+                        "",
 
-    reader.readAsArrayBuffer(file);
+                        email:
+                        item.Email ||
+                        item.email ||
+                        "",
+
+                        obsPrincipal:"",
+
+                        historico:[],
+
+                        agendamento:null,
+
+                        userId:
+                        auth.currentUser.uid
+
+                    };
+
+                    if(!cliente.nome){
+
+                        continue;
+
+                    }
+
+                    promessas.push(
+
+                        addDoc(
+
+                            collection(db,"clientes"),
+
+                            cliente
+
+                        )
+
+                    );
+
+                }
+
+                await Promise.all(promessas);
+
+                await carregarClientes();
+
+                esconderLoading();
+
+                alert(
+                    "Importação concluída"
+                );
+
+            }catch(err){
+
+                console.error(err);
+
+                esconderLoading();
+
+                alert(
+                    "Erro ao ler planilha"
+                );
+
+            }
+
+        };
+
+        reader.readAsArrayBuffer(file);
+
+    }catch(err){
+
+        console.error(err);
+
+        esconderLoading();
+
+        alert(
+            "Erro na importação"
+        );
+
+    }
 
 }
 
