@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>CRM PRO Firebase</title>
+<title>CRM PRO HYBRID</title>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
@@ -126,9 +126,8 @@ textarea{
 }
 
 .loading{
-    margin-top:10px;
     text-align:center;
-    font-size:14px;
+    margin-top:10px;
     color:#cbd5e1;
 }
 
@@ -350,31 +349,23 @@ import {
 } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { getAnalytics } from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-
-
 const firebaseConfig = {
 
-    apiKey: "AIzaSyBXItibf_Ytfwgl7aZ8C65B8Fxt1LMGFYU",
+    apiKey: "SUA_KEY",
 
-    authDomain: "crmm-m.firebaseapp.com",
+    authDomain: "SEU_AUTH",
 
-    projectId: "crmm-m",
+    projectId: "SEU_PROJECT",
 
-    storageBucket: "crmm-m.firebasestorage.app",
+    storageBucket: "SEU_BUCKET",
 
-    messagingSenderId: "1042579492735",
+    messagingSenderId: "SEU_MSG",
 
-    appId: "1:1042579492735:web:439920899b3ced170e544a",
-
-    measurementId: "G-8ZBDND5GDQ"
+    appId: "SEU_APP"
 
 };
 
 const app = initializeApp(firebaseConfig);
-
-getAnalytics(app);
 
 const auth = getAuth(app);
 
@@ -383,6 +374,39 @@ const db = getFirestore(app);
 let clientes = [];
 
 let clienteAtual = null;
+
+
+/* LOCAL CACHE */
+
+function salvarCache(){
+
+    localStorage.setItem(
+        "clientes_cache",
+        JSON.stringify(clientes)
+    );
+
+}
+
+function carregarCache(){
+
+    try{
+
+        const raw =
+        localStorage.getItem(
+            "clientes_cache"
+        );
+
+        clientes = raw
+        ? JSON.parse(raw)
+        : [];
+
+    }catch{
+
+        clientes = [];
+
+    }
+
+}
 
 
 /* LOGIN */
@@ -452,7 +476,13 @@ onAuthStateChanged(auth, async user => {
         document.getElementById("crmApp")
         .style.display = "block";
 
-        await carregarClientes();
+        carregarCache();
+
+        renderClientes();
+
+        renderAgendados();
+
+        sincronizarFirebase();
 
     }else{
 
@@ -467,97 +497,65 @@ onAuthStateChanged(auth, async user => {
 });
 
 
-/* CLIENTES */
+/* SINCRONIZAR */
 
-window.salvarCliente = async function(){
+async function sincronizarFirebase(){
 
-    const nome =
-    document.getElementById("nome").value.trim();
+    mostrarLoading("Sincronizando...");
 
-    if(!nome){
+    try{
 
-        return alert("Digite o nome");
+        const snapshot =
+        await getDocs(
+            collection(db,"clientes")
+        );
+
+        clientes = [];
+
+        snapshot.forEach(docSnap=>{
+
+            const data = docSnap.data();
+
+            if(
+                data.userId ===
+                auth.currentUser.uid
+            ){
+
+                clientes.push({
+
+                    id:docSnap.id,
+
+                    ...data
+
+                });
+
+            }
+
+        });
+
+        salvarCache();
+
+        renderClientes();
+
+        renderAgendados();
+
+    }catch(err){
+
+        console.log(err);
 
     }
-
-    mostrarLoading("Salvando cliente...");
-
-    await addDoc(
-
-        collection(db,"clientes"),
-
-        {
-
-            nome,
-
-            telefone:
-            document.getElementById("telefone").value,
-
-            email:
-            document.getElementById("email").value,
-
-            obsPrincipal:
-            document.getElementById("obsPrincipal").value,
-
-            historico:[],
-
-            agendamento:null,
-
-            userId: auth.currentUser.uid
-
-        }
-
-    );
-
-    limparCampos();
-
-    await carregarClientes();
 
     esconderLoading();
 
 }
 
 
-/* CARREGAR */
-
-async function carregarClientes(){
-
-    clientes = [];
-
-    const querySnapshot =
-    await getDocs(collection(db,"clientes"));
-
-    querySnapshot.forEach(docSnap => {
-
-        const data = docSnap.data();
-
-        if(data.userId === auth.currentUser.uid){
-
-            clientes.push({
-
-                id:docSnap.id,
-
-                ...data
-
-            });
-
-        }
-
-    });
-
-    renderClientes();
-
-    renderAgendados();
-
-}
-
-
 /* LOADING */
 
-function mostrarLoading(texto){
+function mostrarLoading(txt){
 
     document.getElementById("loading")
-    .innerText = texto;
+    .innerText = txt;
 
 }
 
@@ -569,17 +567,86 @@ function esconderLoading(){
 }
 
 
+/* SALVAR CLIENTE */
+
+window.salvarCliente = async function(){
+
+    const nome =
+    document.getElementById("nome")
+    .value.trim();
+
+    if(!nome){
+
+        return alert("Digite nome");
+
+    }
+
+    const cliente = {
+
+        id:Date.now(),
+
+        nome,
+
+        telefone:
+        document.getElementById("telefone").value,
+
+        email:
+        document.getElementById("email").value,
+
+        obsPrincipal:
+        document.getElementById("obsPrincipal").value,
+
+        historico:[],
+
+        agendamento:null
+
+    };
+
+    clientes.unshift(cliente);
+
+    salvarCache();
+
+    renderClientes();
+
+    limparCampos();
+
+    try{
+
+        await addDoc(
+
+            collection(db,"clientes"),
+
+            {
+
+                ...cliente,
+
+                userId:
+                auth.currentUser.uid
+
+            }
+
+        );
+
+    }catch(err){
+
+        console.log(err);
+
+    }
+
+}
+
+
 /* LIMPAR */
 
 function limparCampos(){
 
-    document.getElementById("nome").value = "";
+    document.getElementById("nome").value="";
 
-    document.getElementById("telefone").value = "";
+    document.getElementById("telefone").value="";
 
-    document.getElementById("email").value = "";
+    document.getElementById("email").value="";
 
-    document.getElementById("obsPrincipal").value = "";
+    document.getElementById("obsPrincipal").value="";
 
 }
 
@@ -599,7 +666,7 @@ window.renderClientes = function(){
 
     clientes
 
-    .filter(c =>
+    .filter(c=>
         c.nome.toLowerCase().includes(termo)
     )
 
@@ -615,7 +682,9 @@ window.renderClientes = function(){
 
             <b>${c.nome}</b><br>
 
-            <small>${c.telefone || ""}</small>
+            <small>
+            ${c.telefone || ""}
+            </small>
 
             </span>
 
@@ -646,7 +715,7 @@ window.renderAgendados = function(){
 
     clientes
 
-    .filter(c => c.agendamento)
+    .filter(c=>c.agendamento)
 
     .forEach(c=>{
 
@@ -685,7 +754,7 @@ window.renderAgendados = function(){
 window.selecionarCliente = function(id){
 
     clienteAtual =
-    clientes.find(c => c.id === id);
+    clientes.find(c=>String(c.id)===String(id));
 
     if(!clienteAtual) return;
 
@@ -720,9 +789,14 @@ window.selecionarCliente = function(id){
 
 window.deletarCliente = async function(id){
 
-    await deleteDoc(doc(db,"clientes",id));
+    clientes =
+    clientes.filter(
+        c=>String(c.id)!==String(id)
+    );
 
-    carregarClientes();
+    salvarCache();
+
+    renderClientes();
 
 }
 
@@ -732,7 +806,8 @@ window.deletarCliente = async function(id){
 window.abrirWhats = function(){
 
     let numero =
-    clienteAtual.telefone.replace(/\D/g,"");
+    clienteAtual.telefone
+    .replace(/\D/g,"");
 
     if(!numero.startsWith("55")){
 
@@ -750,7 +825,7 @@ window.abrirWhats = function(){
 
 /* AGENDAR */
 
-window.agendarServico = async function(){
+window.agendarServico = function(){
 
     if(!clienteAtual){
 
@@ -758,23 +833,12 @@ window.agendarServico = async function(){
 
     }
 
-    const data =
-    document.getElementById("dataAgendamento")
-    .value;
+    clienteAtual.agendamento =
+    document.getElementById(
+        "dataAgendamento"
+    ).value;
 
-    await updateDoc(
-
-        doc(db,"clientes",clienteAtual.id),
-
-        {
-
-            agendamento:data
-
-        }
-
-    );
-
-    clienteAtual.agendamento = data;
+    salvarCache();
 
     renderAgenda();
 
@@ -792,7 +856,7 @@ window.renderAgenda = function(){
 
     if(!clienteAtual?.agendamento){
 
-        div.innerHTML = "";
+        div.innerHTML="";
 
         return;
 
@@ -819,7 +883,8 @@ window.adicionarObs = function(){
 
     salvarHistorico(
 
-        document.getElementById("novaObs").value
+        document.getElementById("novaObs")
+        .value
 
     );
 
@@ -831,7 +896,7 @@ window.addStatus = function(s){
 
 }
 
-window.salvarHistorico = async function(t){
+window.salvarHistorico = function(t){
 
     if(!clienteAtual) return;
 
@@ -843,18 +908,7 @@ window.salvarHistorico = async function(t){
 
     });
 
-    await updateDoc(
-
-        doc(db,"clientes",clienteAtual.id),
-
-        {
-
-            historico:
-            clienteAtual.historico
-
-        }
-
-    );
+    salvarCache();
 
     renderHistorico();
 
@@ -865,7 +919,7 @@ window.renderHistorico = function(){
     const div =
     document.getElementById("historico");
 
-    div.innerHTML = "<h4>Histórico</h4>";
+    div.innerHTML="<h4>Histórico</h4>";
 
     if(!clienteAtual) return;
 
@@ -928,142 +982,73 @@ window.exportarExcel = function(){
 
 /* IMPORTAR */
 
-window.importarExcel = async function(event){
+window.importarExcel = function(event){
 
-    const file = event.target.files[0];
+    const file =
+    event.target.files[0];
 
-    if(!file){
+    if(!file) return;
 
-        return;
+    const reader =
+    new FileReader();
 
-    }
+    reader.onload = e => {
 
-    try{
+        const wb = XLSX.read(
 
-        mostrarLoading(
-            "Importando planilha..."
+            new Uint8Array(e.target.result),
+
+            {type:"array"}
+
         );
 
-        const reader = new FileReader();
+        const json =
+        XLSX.utils.sheet_to_json(
 
-        reader.onload = async e => {
+            wb.Sheets[wb.SheetNames[0]]
 
-            try{
-
-                const data =
-                new Uint8Array(e.target.result);
-
-                const wb = XLSX.read(data, {
-
-                    type:"array"
-
-                });
-
-                const sheet =
-                wb.Sheets[wb.SheetNames[0]];
-
-                const json =
-                XLSX.utils.sheet_to_json(sheet);
-
-                if(!json.length){
-
-                    esconderLoading();
-
-                    alert("Planilha vazia");
-
-                    return;
-
-                }
-
-                const promessas = [];
-
-                for(const item of json){
-
-                    const cliente = {
-
-                        nome:
-                        item.Nome ||
-                        item.nome ||
-                        "",
-
-                        telefone:
-                        item.Telefone ||
-                        item.telefone ||
-                        "",
-
-                        email:
-                        item.Email ||
-                        item.email ||
-                        "",
-
-                        obsPrincipal:"",
-
-                        historico:[],
-
-                        agendamento:null,
-
-                        userId:
-                        auth.currentUser.uid
-
-                    };
-
-                    if(!cliente.nome){
-
-                        continue;
-
-                    }
-
-                    promessas.push(
-
-                        addDoc(
-
-                            collection(db,"clientes"),
-
-                            cliente
-
-                        )
-
-                    );
-
-                }
-
-                await Promise.all(promessas);
-
-                await carregarClientes();
-
-                esconderLoading();
-
-                alert(
-                    "Importação concluída"
-                );
-
-            }catch(err){
-
-                console.error(err);
-
-                esconderLoading();
-
-                alert(
-                    "Erro ao ler planilha"
-                );
-
-            }
-
-        };
-
-        reader.readAsArrayBuffer(file);
-
-    }catch(err){
-
-        console.error(err);
-
-        esconderLoading();
-
-        alert(
-            "Erro na importação"
         );
 
-    }
+        json.forEach(item=>{
+
+            clientes.unshift({
+
+                id:Date.now()+Math.random(),
+
+                nome:
+                item.Nome ||
+                item.nome ||
+                "",
+
+                telefone:
+                item.Telefone ||
+                item.telefone ||
+                "",
+
+                email:
+                item.Email ||
+                item.email ||
+                "",
+
+                obsPrincipal:"",
+
+                historico:[],
+
+                agendamento:null
+
+            });
+
+        });
+
+        salvarCache();
+
+        renderClientes();
+
+        alert("Importado");
+
+    };
+
+    reader.readAsArrayBuffer(file);
 
 }
 
